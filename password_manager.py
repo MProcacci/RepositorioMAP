@@ -51,15 +51,16 @@ def verify_access_key(access_key):
     return hash_access_key(access_key) == HASHED_ACCESS_KEY
 
 # Función para almacenar una nueva contraseña
-def store_password(site, password):
+def store_password(site, user, password):
     encrypted_site = encrypt_data(site)
+    encrypted_user = encrypt_data(user)
     encrypted_password = encrypt_data(password)
     date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     encrypted_date = encrypt_data(date)
 
     try:
         with open(BACKUP_FILENAME, 'a') as file:
-            file.write(f"{encrypted_site},{encrypted_password},{encrypted_date}\n")
+            file.write(f"{encrypted_site},{encrypted_user},{encrypted_password},{encrypted_date}\n")
     except Exception as e:
         return str(e)
     return None
@@ -72,13 +73,14 @@ def retrieve_passwords():
             with open(BACKUP_FILENAME, 'r') as file:
                 for line in file:
                     parts = line.strip().split(',')
-                    if len(parts) == 3:
-                        encrypted_site, encrypted_password, encrypted_date = parts
+                    if len(parts) == 4:
+                        encrypted_site, encrypted_user, encrypted_password, encrypted_date = parts
                         site = decrypt_data(encrypted_site)
+                        user = decrypt_data(encrypted_user)
                         password = decrypt_data(encrypted_password)
                         date = decrypt_data(encrypted_date)
-                        if "Error al desencriptar" not in site and "Error al desencriptar" not in password and "Error al desencriptar" not in date:
-                            passwords.append((site, password, date))
+                        if "Error al desencriptar" not in site and "Error al desencriptar" not in user and "Error al desencriptar" not in password and "Error al desencriptar" not in date:
+                            passwords.append((site, user, password, date))
                         else:
                             print(f"Error al desencriptar línea: {line}")
                     else:
@@ -88,23 +90,24 @@ def retrieve_passwords():
     return passwords
 
 # Función para modificar una contraseña
-def modify_password(site, new_password):
+def modify_password(site, user, new_password):
     passwords = retrieve_passwords()
     if isinstance(passwords, str):
         return passwords
 
-    for i, (stored_site, _, _) in enumerate(passwords):
+    for i, (stored_site, _, _, _) in enumerate(passwords):
         if stored_site == site:
-            passwords[i] = (site, new_password, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            passwords[i] = (site, user, new_password, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             break
 
     try:
         with open(BACKUP_FILENAME, 'w') as file:
-            for site, password, date in passwords:
+            for site, user, password, date in passwords:
                 encrypted_site = encrypt_data(site)
+                encrypted_user = encrypt_data(user)
                 encrypted_password = encrypt_data(password)
                 encrypted_date = encrypt_data(date)
-                file.write(f"{encrypted_site},{encrypted_password},{encrypted_date}\n")
+                file.write(f"{encrypted_site},{encrypted_user},{encrypted_password},{encrypted_date}\n")
     except Exception as e:
         return str(e)
     return None
@@ -119,18 +122,20 @@ def delete_password(site):
 
     try:
         with open(BACKUP_FILENAME, 'w') as file:
-            for site, password, date in passwords:
+            for site, user, password, date in passwords:
                 encrypted_site = encrypt_data(site)
+                encrypted_user = encrypt_data(user)
                 encrypted_password = encrypt_data(password)
                 encrypted_date = encrypt_data(date)
-                file.write(f"{encrypted_site},{encrypted_password},{encrypted_date}\n")
+                file.write(f"{encrypted_site},{encrypted_user},{encrypted_password},{encrypted_date}\n")
     except Exception as e:
         return str(e)
     return None
 
 # Función para reiniciar los campos de texto
-def reset_fields(site_input, password_input, new_password_input, page):
+def reset_fields(site_input, user_input, password_input, new_password_input, page):
     site_input.value = ""
+    user_input.value = ""
     password_input.value = ""
     new_password_input.value = ""
     page.update()
@@ -164,8 +169,8 @@ def close_dialog(page: ft.Page, dialog: ft.AlertDialog):
 # Función principal
 def main(page: ft.Page):
     page.title = "Gestor de Contraseñas"
-    page.window.width = 700
-    page.window.height = 610
+    page.window.width = 800
+    page.window.height = 710
     titulo = ft.Text("Gestor de Contraseñas", size=32, weight=ft.FontWeight.BOLD)
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
@@ -174,6 +179,10 @@ def main(page: ft.Page):
                                     password=True, width=500,
                                     border_color="cyan")
     site_input = ft.TextField(label="Sitio/App",
+                              width=500,
+                              border_color="cyan",
+                              disabled=True)
+    user_input = ft.TextField(label="Usuario",
                               width=500,
                               border_color="cyan",
                               disabled=True)
@@ -194,10 +203,12 @@ def main(page: ft.Page):
         if verify_access_key(access_key_input.value):
             access_key_input.visible = False
             site_input.visible = True
+            user_input.visible = True
             password_input.visible = True
             new_password_input.visible = True
             result_text.value = "Acceso concedido"
             enable_field(site_input, page)
+            enable_field(user_input, page)
             enable_field(password_input, page)
             enable_field(new_password_input, page)
             page.update()
@@ -212,17 +223,18 @@ def main(page: ft.Page):
             page.update()
             return
         site = site_input.value
+        user = user_input.value
         password = password_input.value
-        if site == "" or password == "":
-            result_text.value = "Debe ingresar un sitio y una contraseña"
+        if site == "" or user == "" or password == "":
+            result_text.value = "Debe ingresar un sitio, un usuario y una contraseña"
             page.update()
             return
-        error = store_password(site_input.value, password_input.value)
+        error = store_password(site_input.value, user_input.value, password_input.value)
         if error:
             result_text.value = f"Error al almacenar la contraseña: {error}"
         else:
             result_text.value = f"Contraseña para {site_input.value} almacenada"
-        reset_fields(site_input, password_input, new_password_input, page)
+        reset_fields(site_input, user_input, password_input, new_password_input, page)
 
     # Función para la lista de contrasenias
     def list_passwords_action(e):
@@ -237,8 +249,8 @@ def main(page: ft.Page):
             page.update()
             return
 
-        password_items = [ft.Text(f"{site}:\t\t{password}\t\t(Fecha:{date})")
-                          for site, password, date in passwords]
+        password_items = [ft.Text(f"{site}:\t\t{user}\t\t{password}\t\t(Fecha:{date})")
+                          for site, user, password, date in passwords]
 
         def close_dialog1(e):
             e.control.page.dialog.open = False
@@ -247,8 +259,8 @@ def main(page: ft.Page):
         def print_passwords(e):
             try:
                 with open('listado_claves.txt', 'w') as f:
-                    for site, password, date in passwords:
-                        f.write(f"{site}:\t\t\t\t\t{password}\t\t\t\t\t(Fecha:{date})\n")
+                    for site, user, password, date in passwords:
+                        f.write(f"{site}:\t\t\t\t\t{user}\t\t\t\t\t{password}\t\t\t\t\t(Fecha:{date})\n")
 
                 result_text.value = "La lista de claves ha sido guardada en 'listado_claves.txt'"
                 page.dialog.open = False
@@ -275,7 +287,7 @@ def main(page: ft.Page):
         page.dialog = dialog
         dialog.open = True
         page.update()
-        reset_fields(site_input, password_input, new_password_input, page)    
+        reset_fields(site_input, user_input, password_input, new_password_input, page)
 
     # Función para la recuperación de contrasenias
     def retrieve_password_action(e):
@@ -293,13 +305,13 @@ def main(page: ft.Page):
         if isinstance(passwords, str):
             result_text.value = f"Error al recuperar contraseñas: {passwords}"
         else:
-            for stored_site, password, date in passwords:
+            for stored_site, user, password, date in passwords:
                 if stored_site == site:
-                    result_text.value = f"{site}: {password} (Fecha: {date})"
+                    result_text.value = f"{site}: {user} {password} (Fecha: {date})"
                     break
             else:
                 result_text.value = f"No se encontró una contraseña para {site}"
-        reset_fields(site_input, password_input, new_password_input, page)
+        reset_fields(site_input, user_input, password_input, new_password_input, page)
 
     # Función para la modificación de contrasenias
     def modify_password_action(e):
@@ -309,33 +321,34 @@ def main(page: ft.Page):
             return
 
         site = site_input.value
+        user = user_input.value
         password = password_input.value
         new_password = new_password_input.value
-        if site == "" or password == "" or new_password == "":
-            result_text.value = "Debe ingresar un sitio, una contraseña y una nueva contraseña"
+        if site == "" or user == "" or password == "" or new_password == "":
+            result_text.value = "Debe ingresar un sitio, un usuario, una contraseña y una nueva contraseña"
             page.update()
             return
 
         passwords = retrieve_passwords()
-        for stored_site, clave, date in passwords:
-            if stored_site == site:
+        for stored_site, store_user, clave, date in passwords:
+            if stored_site == site and store_user == user:
                 if password == new_password:
                     result_text.value = f"La nueva contraseña para {site} es la misma que la actual"
-                    reset_fields(site_input, password_input, new_password_input, page)
+                    reset_fields(site_input, user_input, password_input, new_password_input, page)
                     return
                 elif clave != password:
                     result_text.value = f"La contraseña actual para {site} es incorrecta"
-                    reset_fields(site_input, password_input, new_password_input, page)
+                    reset_fields(site_input, user_input, password_input, new_password_input, page)
                     return
                 else:
                     break
 
-        error = modify_password(site, new_password)
+        error = modify_password(site, user, new_password)
         if error:
             result_text.value = f"Error al modificar la contraseña: {error}"
         else:
             result_text.value = f"Contraseña para {site} modificada"
-        reset_fields(site_input, password_input, new_password_input, page)
+        reset_fields(site_input, user_input, password_input, new_password_input, page)
 
     # Función para la eliminación de contrasenias
     def delete_password_action(e):
@@ -345,18 +358,19 @@ def main(page: ft.Page):
             return
 
         site = site_input.value
+        user = user_input.value
         password = password_input.value
-        if site == "" or password == "":
-            result_text.value = "Debe ingresar un sitio y una contraseña"
+        if site == "" or user == "" or password == "":
+            result_text.value = "Debe ingresar un sitio, un usuario y una contraseña"
             e.page.update()
             return
 
         passwords = retrieve_passwords()
-        for stored_site, clave, date in passwords:
-            if stored_site == site:
+        for stored_site, store_user, clave, date in passwords:
+            if stored_site == site and store_user == user:
                 if clave != password:
                     result_text.value = f"La contraseña actual para {site} es incorrecta"
-                    reset_fields(site_input, password_input, new_password_input, page)
+                    reset_fields(site_input, user_input, password_input, new_password_input, page)
                     return
                 else:
                     break
@@ -368,13 +382,13 @@ def main(page: ft.Page):
                 result_text.value = f"Error al eliminar la contraseña: {error}"
             else:
                 result_text.value = f"Contraseña para {site} eliminada"
-            reset_fields(site_input, password_input, new_password_input, e.page)
+            reset_fields(site_input, user_input, password_input, new_password_input, e.page)
             close_dialog(e.page, e.page.dialog)
 
         # Función para cancelar la eliminación
         def cancel_delete(e):
             result_text.value = "Eliminación cancelada"
-            reset_fields(site_input, password_input, new_password_input, e.page)
+            reset_fields(site_input, user_input, password_input, new_password_input, e.page)
             close_dialog(e.page, e.page.dialog)
 
         dialog = ft.AlertDialog(
@@ -401,6 +415,7 @@ def main(page: ft.Page):
         access_key_input,
         ft.ElevatedButton("Verificar Acceso", on_click=verify_access),
         site_input,
+        user_input,
         password_input,
         new_password_input,
         ft.Row([almacenar_contraseña], spacing=10, alignment=ft.MainAxisAlignment.CENTER),
