@@ -244,6 +244,19 @@ def main(page: ft.Page):
             e.control.page.dialog.open = False
             e.control.page.update()
 
+        def print_passwords(e):
+            try:
+                with open('listado_claves.txt', 'w') as f:
+                    for site, password, date in passwords:
+                        f.write(f"{site}:\t\t\t\t\t{password}\t\t\t\t\t(Fecha:{date})\n")
+
+                result_text.value = "La lista de claves ha sido guardada en 'listado_claves.txt'"
+                page.dialog.open = False
+                page.update()
+            except Exception as error:
+                result_text.value = f"Error al guardar el archivo: {str(error)}"
+                page.update()
+
         dialog = ft.AlertDialog(
             title=ft.Text("Contraseñas Almacenadas", text_align=ft.TextAlign.CENTER),
             content=ft.ListView(
@@ -254,6 +267,7 @@ def main(page: ft.Page):
                 width=700,
             ),
             actions=[
+                ft.TextButton("Imprimir", on_click=print_passwords),
                 ft.TextButton("Cerrar", on_click=close_dialog1)
             ],
         )
