@@ -237,32 +237,31 @@ def main(page: ft.Page):
             page.update()
             return
 
-        password_list = "\n".join([f"{site}:\t\t\t\t\t{password}\t\t\t\t\t(Fecha:{date})"
-                                   for site, password, date in passwords])
+        password_items = [ft.Text(f"{site}:\t\t{password}\t\t(Fecha:{date})")
+                          for site, password, date in passwords]
 
-        # Funcion para cerrar el dialogo
         def close_dialog1(e):
             e.control.page.dialog.open = False
             e.control.page.update()
 
-        # Crear la ventana de dialogo para mostrar la lista de contraseñas.
         dialog = ft.AlertDialog(
             title=ft.Text("Contraseñas Almacenadas", text_align=ft.TextAlign.CENTER),
-            content=ft.Container(
-                content=ft.Text(password_list, text_align=ft.TextAlign.CENTER),
-                width=600,  # Ancho del contenido
-                height=200,  # Alto del contenido
+            content=ft.ListView(
+                controls=password_items,
+                expand=1,
+                spacing=10,
+                padding=20,
+                width=700,
             ),
-            scrollable=True,
             actions=[
                 ft.TextButton("Cerrar", on_click=close_dialog1)
             ],
-            #actions_alignment=ft.MainAxisAlignment.END
         )
+
         page.dialog = dialog
         dialog.open = True
         page.update()
-        reset_fields(site_input, password_input, new_password_input, page)
+        reset_fields(site_input, password_input, new_password_input, page)    
 
     # Función para la recuperación de contrasenias
     def retrieve_password_action(e):
